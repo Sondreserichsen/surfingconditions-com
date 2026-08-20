@@ -2,6 +2,7 @@ const els = {
   loading: document.getElementById("loading"),
   error: document.getElementById("error"),
   content: document.getElementById("content"),
+  dayTabs: document.getElementById("day-tabs"),
   regionName: document.getElementById("region-name"),
   updatedAt: document.getElementById("updated-at"),
   skillValue: document.getElementById("skill-value"),
@@ -18,15 +19,54 @@ const CROWD_CLASS = {
   "Full": "crowd-full"
 };
 
+let currentForecast = []; // today + next 3 days, one snapshot each
+let currentRegion = null;
+let selectedDayIdx = 0;
+
 function setState(state) {
   els.loading.classList.toggle("hidden", state !== "loading");
   els.error.classList.toggle("hidden", state !== "error");
   els.content.classList.toggle("hidden", state !== "ready");
 }
 
-function render(region, conditions) {
-  els.regionName.textContent = `${region.name} — ${region.spot}`;
-  els.updatedAt.textContent = `Conditions for ${new Date(conditions.time).toLocaleString("en-AU", { timeZone: region.timezone })}`;
+// Open-Meteo (timezone=auto) returns times as the region's local wall clock
+// with no offset, e.g. "2026-08-21T10:00". Parsing that as UTC keeps the
+// hour/weekday numbers exactly as given, regardless of the browser's own timezone.
+function wallClock(isoString) {
+  const [datePart, timePart] = isoString.split("T");
+  const [y, m, d] = datePart.split("-").map(Number);
+  const [hh, mm] = timePart.split(":").map(Number);
+  return new Date(Date.UTC(y, m - 1, d, hh, mm));
+}
+
+function dayLabel(isoString, idx) {
+  if (idx === 0) return "Today";
+  if (idx === 1) return "Tomorrow";
+  const wc = wallClock(isoString);
+  return wc.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+}
+
+function renderDayTabs() {
+  els.dayTabs.innerHTML = "";
+  currentForecast.forEach((day, idx) => {
+    const btn = document.createElement("button");
+    btn.className = "tab day-tab" + (idx === selectedDayIdx ? " active" : "");
+    btn.textContent = dayLabel(day.time, idx);
+    btn.addEventListener("click", () => {
+      selectedDayIdx = idx;
+      renderDayTabs();
+      renderDay();
+    });
+    els.dayTabs.appendChild(btn);
+  });
+}
+
+function renderDay() {
+  const conditions = currentForecast[selectedDayIdx];
+  const wc = wallClock(conditions.time);
+
+  els.regionName.textContent = `${currentRegion.name} — ${currentRegion.spot}`;
+  els.updatedAt.textContent = `Conditions for ${wc.toLocaleString("en-AU", { timeZone: "UTC", weekday: "long", hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" })}`;
 
   const { level } = skillLevelFor(conditions);
   els.skillValue.textContent = level;
@@ -35,8 +75,7 @@ function render(region, conditions) {
     span.classList.toggle("active", span.dataset.level === level);
   });
 
-  const localDate = new Date(new Date().toLocaleString("en-US", { timeZone: region.timezone }));
-  const crowd = crowdEstimateFor(conditions, localDate);
+  const crowd = crowdEstimateFor(conditions, wc);
   els.crowdValue.textContent = crowd;
   els.crowdBadge.className = `crowd-badge ${CROWD_CLASS[crowd]}`;
 
@@ -50,11 +89,13 @@ function render(region, conditions) {
 }
 
 async function loadRegion(key) {
-  const region = REGIONS[key];
+  currentRegion = REGIONS[key];
+  selectedDayIdx = 0;
   setState("loading");
   try {
-    const conditions = await fetchConditions(region);
-    render(region, conditions);
+    currentForecast = await fetchForecast(currentRegion);
+    renderDayTabs();
+    renderDay();
     setState("ready");
   } catch (err) {
     console.error(err);
@@ -66,7 +107,7 @@ async function loadRegion(key) {
 document.getElementById("region-tabs").addEventListener("click", (e) => {
   const btn = e.target.closest(".tab");
   if (!btn) return;
-  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll("#region-tabs .tab").forEach(t => t.classList.remove("active"));
   btn.classList.add("active");
   loadRegion(btn.dataset.region);
 });

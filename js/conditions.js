@@ -40,7 +40,9 @@ function skillLevelFor(c) {
 
 // Crowd estimate: combines how "fun"/approachable the conditions are with
 // typical time-of-day and weekend patterns at popular AU beach breaks.
-function crowdEstimateFor(c, localDate) {
+// `wallClockDate` must hold the region's local hour/weekday in its UTC
+// fields (see wallClock() in app.js) — not an actual UTC or browser-local time.
+function crowdEstimateFor(c, wallClockDate) {
   const waveHeight = c.wave_height ?? c.swell_wave_height ?? 0;
   const windSpeed = c.wind_speed_10m ?? 0;
   const rainChance = c.precipitation_probability ?? 0;
@@ -52,8 +54,8 @@ function crowdEstimateFor(c, localDate) {
   if (windSpeed < 12) goodness += 10;
   if (rainChance > 50) goodness -= 25;
 
-  const hour = localDate.getHours();
-  const day = localDate.getDay(); // 0 = Sunday, 6 = Saturday
+  const hour = wallClockDate.getUTCHours();
+  const day = wallClockDate.getUTCDay(); // 0 = Sunday, 6 = Saturday
   const isWeekend = day === 0 || day === 6;
 
   let timeFactor = 0;
