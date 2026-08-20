@@ -9,9 +9,9 @@ const REGIONS = {
   },
   "gold-coast": {
     name: "Gold Coast",
-    spot: "Snapper Rocks",
-    lat: -28.1594,
-    lon: 153.5478,
+    spot: "Surfers Paradise",
+    lat: -27.9977,
+    lon: 153.4310,
     timezone: "Australia/Brisbane"
   },
   "byron-bay": {
