@@ -149,11 +149,14 @@ function renderDay() {
 
 async function loadRegion(key) {
   currentRegion = REGIONS[key];
-  selectedDayIdx = 0;
-  selectedSlotIdx = 0;
   setState("loading");
   try {
     currentForecast = await fetchForecast(currentRegion);
+    // Keep the previously selected day/time-slot when switching regions,
+    // just clamped in case the new data has fewer days or slots.
+    selectedDayIdx = Math.min(selectedDayIdx, currentForecast.length - 1);
+    const slots = visibleSlots(currentForecast[selectedDayIdx], selectedDayIdx);
+    selectedSlotIdx = Math.min(selectedSlotIdx, Math.max(slots.length - 1, 0));
     renderDayTabs();
     renderTimeTabs();
     renderDay();
