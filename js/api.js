@@ -1,20 +1,19 @@
 // Fetches marine + weather data from Open-Meteo (free, no API key) and
-// returns a snapshot per day: today (closest hour to now) plus the next
-// 3 days (a mid-morning ~10am snapshot, the typical time surfers check).
+// returns snapshots for today plus the next 3 days, each day split into
+// three fixed check-times: 9am, 12pm and 3pm local.
 
 const MARINE_URL = "https://marine-api.open-meteo.com/v1/marine";
 const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
 const FORECAST_DAYS = 4; // today + 3 days ahead
-const REPRESENTATIVE_HOUR = 10; // 10am local, for future days
+const CHECK_HOURS = [9, 12, 15];
 
 function dateKey(isoTime) {
   return isoTime.slice(0, 10); // "YYYY-MM-DD" — Open-Meteo times are local, no offset math needed
 }
 
-// Groups hourly indices by calendar day, then picks one representative
-// index per day: closest-to-now for today, closest-to-10am for later days.
-function representativeIndicesByDay(timeArray) {
-  const today = dateKey(new Date().toISOString());
+// Groups hourly indices by calendar day, then within each day picks the
+// index closest to each of CHECK_HOURS.
+function slotsByDay(timeArray) {
   const byDay = new Map();
 
   timeArray.forEach((t, i) => {
@@ -25,23 +24,17 @@ function representativeIndicesByDay(timeArray) {
 
   const result = [];
   for (const [day, indices] of byDay.entries()) {
-    let bestIdx = indices[0];
-    if (day === today) {
-      const now = Date.now();
-      let bestDiff = Infinity;
-      for (const i of indices) {
-        const diff = Math.abs(new Date(timeArray[i]).getTime() - now);
-        if (diff < bestDiff) { bestDiff = diff; bestIdx = i; }
-      }
-    } else {
+    const slots = CHECK_HOURS.map(targetHour => {
+      let bestIdx = indices[0];
       let bestDiff = Infinity;
       for (const i of indices) {
         const hour = new Date(timeArray[i]).getHours();
-        const diff = Math.abs(hour - REPRESENTATIVE_HOUR);
+        const diff = Math.abs(hour - targetHour);
         if (diff < bestDiff) { bestDiff = diff; bestIdx = i; }
       }
-    }
-    result.push({ day, idx: bestIdx });
+      return { hour: targetHour, idx: bestIdx };
+    });
+    result.push({ day, slots });
   }
 
   result.sort((a, b) => a.day.localeCompare(b.day));
@@ -101,16 +94,17 @@ async function fetchForecast(region) {
     fetchJSON(`${FORECAST_URL}?${forecastParams}`)
   ]);
 
-  const days = representativeIndicesByDay(marine.hourly.time);
+  const days = slotsByDay(marine.hourly.time);
 
-  return days.map(({ day, idx }) => {
+  return days.map(({ day, slots }) => ({
+    day,
     // forecast.hourly.time shares the same hourly grid as marine, so the
     // same index lines up to the same timestamp.
-    return {
-      day,
+    slots: slots.map(({ hour, idx }) => ({
+      hour,
       time: marine.hourly.time[idx],
       ...pick(marine.hourly, idx),
       ...pick(forecast.hourly, idx)
-    };
-  });
+    }))
+  }));
 }

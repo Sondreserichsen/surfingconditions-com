@@ -3,6 +3,7 @@ const els = {
   error: document.getElementById("error"),
   content: document.getElementById("content"),
   dayTabs: document.getElementById("day-tabs"),
+  timeTabs: document.getElementById("time-tabs"),
   regionName: document.getElementById("region-name"),
   updatedAt: document.getElementById("updated-at"),
   skillValue: document.getElementById("skill-value"),
@@ -19,9 +20,12 @@ const CROWD_CLASS = {
   "Full": "crowd-full"
 };
 
-let currentForecast = []; // today + next 3 days, one snapshot each
+const TIME_LABELS = { 9: "9am", 12: "12pm", 15: "3pm" };
+
+let currentForecast = []; // today + next 3 days, each with 9am/12pm/3pm slots
 let currentRegion = null;
 let selectedDayIdx = 0;
+let selectedSlotIdx = 1; // default to 12pm
 
 function setState(state) {
   els.loading.classList.toggle("hidden", state !== "loading");
@@ -39,10 +43,10 @@ function wallClock(isoString) {
   return new Date(Date.UTC(y, m - 1, d, hh, mm));
 }
 
-function dayLabel(isoString, idx) {
+function dayLabel(day, idx) {
   if (idx === 0) return "Today";
   if (idx === 1) return "Tomorrow";
-  const wc = wallClock(isoString);
+  const wc = wallClock(day.slots[0].time);
   return wc.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
 }
 
@@ -51,18 +55,35 @@ function renderDayTabs() {
   currentForecast.forEach((day, idx) => {
     const btn = document.createElement("button");
     btn.className = "tab day-tab" + (idx === selectedDayIdx ? " active" : "");
-    btn.textContent = dayLabel(day.time, idx);
+    btn.textContent = dayLabel(day, idx);
     btn.addEventListener("click", () => {
       selectedDayIdx = idx;
       renderDayTabs();
+      renderTimeTabs();
       renderDay();
     });
     els.dayTabs.appendChild(btn);
   });
 }
 
+function renderTimeTabs() {
+  els.timeTabs.innerHTML = "";
+  const day = currentForecast[selectedDayIdx];
+  day.slots.forEach((slot, idx) => {
+    const btn = document.createElement("button");
+    btn.className = "tab time-tab" + (idx === selectedSlotIdx ? " active" : "");
+    btn.textContent = TIME_LABELS[slot.hour] ?? `${slot.hour}:00`;
+    btn.addEventListener("click", () => {
+      selectedSlotIdx = idx;
+      renderTimeTabs();
+      renderDay();
+    });
+    els.timeTabs.appendChild(btn);
+  });
+}
+
 function renderDay() {
-  const conditions = currentForecast[selectedDayIdx];
+  const conditions = currentForecast[selectedDayIdx].slots[selectedSlotIdx];
   const wc = wallClock(conditions.time);
 
   els.regionName.textContent = `${currentRegion.name} — ${currentRegion.spot}`;
@@ -91,10 +112,12 @@ function renderDay() {
 async function loadRegion(key) {
   currentRegion = REGIONS[key];
   selectedDayIdx = 0;
+  selectedSlotIdx = 1;
   setState("loading");
   try {
     currentForecast = await fetchForecast(currentRegion);
     renderDayTabs();
+    renderTimeTabs();
     renderDay();
     setState("ready");
   } catch (err) {

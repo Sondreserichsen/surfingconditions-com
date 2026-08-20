@@ -90,6 +90,24 @@ main {
   padding: 0.4rem 0.9rem;
 }
 
+.time-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.time-tab {
+  font-size: 0.8rem;
+  padding: 0.3rem 0.8rem;
+  background: transparent;
+  border-style: dashed;
+}
+
+.time-tab.active {
+  border-style: solid;
+}
+
 .summary-card {
   display: flex;
   flex-direction: column;
