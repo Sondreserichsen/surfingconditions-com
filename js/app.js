@@ -25,7 +25,7 @@ const TIME_LABELS = { 9: "9am", 12: "12pm", 15: "3pm" };
 let currentForecast = []; // today + next 3 days, each with 9am/12pm/3pm slots
 let currentRegion = null;
 let selectedDayIdx = 0;
-let selectedSlotIdx = 0;
+let selectedHour = null; // 9, 12 or 15 — the user's chosen check-time, kept across day/region switches
 
 function setState(state) {
   els.loading.classList.toggle("hidden", state !== "loading");
@@ -67,6 +67,24 @@ function visibleSlots(day, dayIdx) {
   return day.slots.filter(slot => wallClock(slot.time) > now);
 }
 
+// Resolves selectedHour to an index within the given (day-specific) slot
+// list: exact hour match if present, otherwise the closest available hour,
+// so a choice like "3pm" survives switching to a day/region where 3pm
+// itself isn't offered.
+function resolveSlotIndex(slots) {
+  if (slots.length === 0) return -1;
+  if (selectedHour == null) return 0;
+  const exact = slots.findIndex(s => s.hour === selectedHour);
+  if (exact !== -1) return exact;
+  let best = 0;
+  let bestDiff = Infinity;
+  slots.forEach((s, i) => {
+    const diff = Math.abs(s.hour - selectedHour);
+    if (diff < bestDiff) { bestDiff = diff; best = i; }
+  });
+  return best;
+}
+
 function dayLabel(day, idx) {
   if (idx === 0) return "Today";
   if (idx === 1) return "Tomorrow";
@@ -82,7 +100,6 @@ function renderDayTabs() {
     btn.textContent = dayLabel(day, idx);
     btn.addEventListener("click", () => {
       selectedDayIdx = idx;
-      selectedSlotIdx = 0;
       renderDayTabs();
       renderTimeTabs();
       renderDay();
@@ -94,12 +111,13 @@ function renderDayTabs() {
 function renderTimeTabs() {
   els.timeTabs.innerHTML = "";
   const slots = visibleSlots(currentForecast[selectedDayIdx], selectedDayIdx);
+  const activeIdx = resolveSlotIndex(slots);
   slots.forEach((slot, idx) => {
     const btn = document.createElement("button");
-    btn.className = "tab time-tab" + (idx === selectedSlotIdx ? " active" : "");
+    btn.className = "tab time-tab" + (idx === activeIdx ? " active" : "");
     btn.textContent = TIME_LABELS[slot.hour] ?? `${slot.hour}:00`;
     btn.addEventListener("click", () => {
-      selectedSlotIdx = idx;
+      selectedHour = slot.hour;
       renderTimeTabs();
       renderDay();
     });
@@ -112,7 +130,8 @@ function renderDay() {
 
   els.regionName.textContent = `${currentRegion.name} — ${currentRegion.spot}`;
 
-  if (slots.length === 0) {
+  const idx = resolveSlotIndex(slots);
+  if (idx === -1) {
     els.updatedAt.textContent = "No more check-times left today — try Tomorrow.";
     els.skillValue.textContent = "—";
     els.skillScale.querySelectorAll("span").forEach(span => span.classList.remove("active"));
@@ -122,7 +141,7 @@ function renderDay() {
     return;
   }
 
-  const conditions = slots[selectedSlotIdx] ?? slots[0];
+  const conditions = slots[idx];
   const wc = wallClock(conditions.time);
 
   els.updatedAt.textContent = `Conditions for ${wc.toLocaleString("en-AU", { timeZone: "UTC", weekday: "long", hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" })}`;
@@ -152,11 +171,7 @@ async function loadRegion(key) {
   setState("loading");
   try {
     currentForecast = await fetchForecast(currentRegion);
-    // Keep the previously selected day/time-slot when switching regions,
-    // just clamped in case the new data has fewer days or slots.
     selectedDayIdx = Math.min(selectedDayIdx, currentForecast.length - 1);
-    const slots = visibleSlots(currentForecast[selectedDayIdx], selectedDayIdx);
-    selectedSlotIdx = Math.min(selectedSlotIdx, Math.max(slots.length - 1, 0));
     renderDayTabs();
     renderTimeTabs();
     renderDay();
