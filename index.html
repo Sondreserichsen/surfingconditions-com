@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>East Coast AU Surf Conditions</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <h1>🌊 East Coast Surf Report</h1>
+    <p class="subtitle">Live conditions for Sunshine Coast, Gold Coast &amp; Byron Bay</p>
+  </header>
+
+  <nav class="region-tabs" id="region-tabs">
+    <button class="tab active" data-region="sunshine-coast">Sunshine Coast</button>
+    <button class="tab" data-region="gold-coast">Gold Coast</button>
+    <button class="tab" data-region="byron-bay">Byron Bay</button>
+  </nav>
+
+  <main id="app">
+    <div id="loading" class="status-msg">Loading conditions…</div>
+    <div id="error" class="status-msg error hidden"></div>
+
+    <section id="content" class="hidden">
+      <div class="summary-card">
+        <div class="summary-left">
+          <h2 id="region-name"></h2>
+          <p id="updated-at" class="muted"></p>
+        </div>
+        <div class="summary-right">
+          <div class="skill-badge" id="skill-badge">
+            <span class="skill-label">Best suited for</span>
+            <span class="skill-value" id="skill-value">—</span>
+          </div>
+          <div class="crowd-badge" id="crowd-badge">
+            <span class="crowd-label">Crowd (est.)</span>
+            <span class="crowd-value" id="crowd-value">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="skill-scale" id="skill-scale">
+        <span data-level="Beginner">Beginner</span>
+        <span data-level="Amateur">Amateur</span>
+        <span data-level="Casual">Casual</span>
+        <span data-level="Experienced">Experienced</span>
+        <span data-level="Expert">Expert</span>
+      </div>
+
+      <div class="metrics-grid" id="metrics-grid"></div>
+
+      <p class="disclaimer">
+        Wave &amp; wind data from <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a>.
+        Skill-level suitability and crowd levels are estimates generated from these conditions, not measurements — always check conditions yourself before paddling out.
+      </p>
+    </section>
+  </main>
+
+  <script src="js/regions.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/conditions.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
