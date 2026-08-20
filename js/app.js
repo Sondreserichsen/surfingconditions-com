@@ -25,7 +25,7 @@ const TIME_LABELS = { 9: "9am", 12: "12pm", 15: "3pm" };
 let currentForecast = []; // today + next 3 days, each with 9am/12pm/3pm slots
 let currentRegion = null;
 let selectedDayIdx = 0;
-let selectedSlotIdx = 1; // default to 12pm
+let selectedSlotIdx = 0;
 
 function setState(state) {
   els.loading.classList.toggle("hidden", state !== "loading");
@@ -43,6 +43,30 @@ function wallClock(isoString) {
   return new Date(Date.UTC(y, m - 1, d, hh, mm));
 }
 
+// Current time, expressed the same "wall clock as UTC fields" way as
+// wallClock() above, so the two can be compared directly.
+function nowWallClock(timezone) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
+  }).formatToParts(new Date());
+  const map = {};
+  parts.forEach(p => { if (p.type !== "literal") map[p.type] = p.value; });
+  return new Date(Date.UTC(
+    Number(map.year), Number(map.month) - 1, Number(map.day),
+    Number(map.hour) % 24, Number(map.minute), Number(map.second)
+  ));
+}
+
+// For today, only show check-times still ahead of the current time;
+// other days show all three.
+function visibleSlots(day, dayIdx) {
+  if (dayIdx !== 0) return day.slots;
+  const now = nowWallClock(currentRegion.timezone);
+  return day.slots.filter(slot => wallClock(slot.time) > now);
+}
+
 function dayLabel(day, idx) {
   if (idx === 0) return "Today";
   if (idx === 1) return "Tomorrow";
@@ -58,6 +82,7 @@ function renderDayTabs() {
     btn.textContent = dayLabel(day, idx);
     btn.addEventListener("click", () => {
       selectedDayIdx = idx;
+      selectedSlotIdx = 0;
       renderDayTabs();
       renderTimeTabs();
       renderDay();
@@ -68,8 +93,8 @@ function renderDayTabs() {
 
 function renderTimeTabs() {
   els.timeTabs.innerHTML = "";
-  const day = currentForecast[selectedDayIdx];
-  day.slots.forEach((slot, idx) => {
+  const slots = visibleSlots(currentForecast[selectedDayIdx], selectedDayIdx);
+  slots.forEach((slot, idx) => {
     const btn = document.createElement("button");
     btn.className = "tab time-tab" + (idx === selectedSlotIdx ? " active" : "");
     btn.textContent = TIME_LABELS[slot.hour] ?? `${slot.hour}:00`;
@@ -83,10 +108,23 @@ function renderTimeTabs() {
 }
 
 function renderDay() {
-  const conditions = currentForecast[selectedDayIdx].slots[selectedSlotIdx];
-  const wc = wallClock(conditions.time);
+  const slots = visibleSlots(currentForecast[selectedDayIdx], selectedDayIdx);
 
   els.regionName.textContent = `${currentRegion.name} — ${currentRegion.spot}`;
+
+  if (slots.length === 0) {
+    els.updatedAt.textContent = "No more check-times left today — try Tomorrow.";
+    els.skillValue.textContent = "—";
+    els.skillScale.querySelectorAll("span").forEach(span => span.classList.remove("active"));
+    els.crowdValue.textContent = "—";
+    els.crowdBadge.className = "crowd-badge";
+    els.metricsGrid.innerHTML = "";
+    return;
+  }
+
+  const conditions = slots[selectedSlotIdx] ?? slots[0];
+  const wc = wallClock(conditions.time);
+
   els.updatedAt.textContent = `Conditions for ${wc.toLocaleString("en-AU", { timeZone: "UTC", weekday: "long", hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" })}`;
 
   const { level } = skillLevelFor(conditions);
@@ -112,7 +150,7 @@ function renderDay() {
 async function loadRegion(key) {
   currentRegion = REGIONS[key];
   selectedDayIdx = 0;
-  selectedSlotIdx = 1;
+  selectedSlotIdx = 0;
   setState("loading");
   try {
     currentForecast = await fetchForecast(currentRegion);
