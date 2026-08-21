@@ -1,18 +1,20 @@
 // Fetches marine + weather data from Open-Meteo (free, no API key) and
 // returns snapshots for today plus the next 3 days, each day split into
-// one slot per hour (00:00-23:00 local) so the UI can scrub through a
-// continuous timeline instead of a few fixed check-times.
+// one slot per hour, limited to the 06:00-18:00 daytime window so the UI
+// only ever deals with surfable daylight hours.
 
 const MARINE_URL = "https://marine-api.open-meteo.com/v1/marine";
 const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
 const FORECAST_DAYS = 4; // today + 3 days ahead
+const DAY_START_HOUR = 6;
+const DAY_END_HOUR = 18;
 
 function dateKey(isoTime) {
   return isoTime.slice(0, 10); // "YYYY-MM-DD" — Open-Meteo times are local, no offset math needed
 }
 
-// Groups hourly indices by calendar day; each day's slots are every hour
-// Open-Meteo returned for it, in chronological order.
+// Groups hourly indices by calendar day; each day's slots are its
+// 06:00-18:00 hours, in chronological order.
 function slotsByDay(timeArray) {
   const byDay = new Map();
 
@@ -24,7 +26,9 @@ function slotsByDay(timeArray) {
 
   const result = [];
   for (const [day, indices] of byDay.entries()) {
-    const slots = indices.map(i => ({ hour: new Date(timeArray[i]).getHours(), idx: i }));
+    const slots = indices
+      .map(i => ({ hour: new Date(timeArray[i]).getHours(), idx: i }))
+      .filter(s => s.hour >= DAY_START_HOUR && s.hour <= DAY_END_HOUR);
     result.push({ day, slots });
   }
 

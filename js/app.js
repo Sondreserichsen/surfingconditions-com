@@ -16,14 +16,15 @@ const els = {
   crowdBadge: document.getElementById("crowd-badge"),
   skillScale: document.getElementById("skill-scale"),
   flatBanner: document.getElementById("flat-banner"),
-  metricsGrid: document.getElementById("metrics-grid")
+  metricsGrid: document.getElementById("metrics-grid"),
+  weatherPanelDay: document.getElementById("weather-panel-day"),
+  hourlyList: document.getElementById("hourly-list")
 };
 
 const CROWD_CLASS = {
-  "Empty": "crowd-empty",
+  "Not Busy": "crowd-not-busy",
   "Slightly Busy": "crowd-slight",
-  "Busy": "crowd-busy",
-  "Full": "crowd-full"
+  "Busy": "crowd-busy"
 };
 
 let currentForecast = []; // today + next 3 days, each with one slot per hour
@@ -68,7 +69,8 @@ function nowWallClock(timezone) {
 }
 
 // For today, only show hours still ahead of the current time; other days
-// show the full 24-hour timeline.
+// show the full 06:00-18:00 window (day.slots is already limited to that
+// window by api.js).
 function visibleSlots(day, dayIdx) {
   if (dayIdx !== 0) return day.slots;
   const now = nowWallClock(currentRegion.timezone);
@@ -111,8 +113,46 @@ function renderDayTabs() {
       renderDayTabs();
       renderTimeSlider();
       renderDay();
+      renderHourlyPanel();
     });
     els.dayTabs.appendChild(btn);
+  });
+}
+
+// Full 6am-6pm weather rundown for the selected day, independent of the
+// slider's "future hours only" restriction for today — this is an overview
+// of the whole window, not just what's left to check.
+function renderHourlyPanel() {
+  const day = currentForecast[selectedDayIdx];
+  els.weatherPanelDay.textContent = dayLabel(day, selectedDayIdx);
+
+  // Highlight whatever hour is actually being displayed, which may differ
+  // from the raw selectedHour if resolveSlotIndex had to fall back (e.g.
+  // the exact hour was filtered out of today's remaining slots).
+  const visible = visibleSlots(day, selectedDayIdx);
+  const visIdx = resolveSlotIndex(visible);
+  const displayedHour = visIdx === -1 ? null : visible[visIdx].hour;
+
+  els.hourlyList.innerHTML = "";
+  day.slots.forEach(slot => {
+    const row = document.createElement("div");
+    row.className = "hourly-row" + (slot.hour === displayedHour ? " active" : "");
+    const temp = slot.temperature_2m != null ? `${slot.temperature_2m.toFixed(0)}°C` : "—";
+    const wind = slot.wind_speed_10m != null ? `${slot.wind_speed_10m.toFixed(0)} km/h ${degreesToCompass(slot.wind_direction_10m)}` : "—";
+    const rain = slot.precipitation_probability != null ? `${slot.precipitation_probability}% rain` : "—";
+    row.innerHTML = `
+      <span class="hourly-time">${formatHourLabel(slot.hour)}</span>
+      <span class="hourly-temp">${temp}</span>
+      <span class="hourly-wind">${wind}</span>
+      <span class="hourly-rain">${rain}</span>
+    `;
+    row.addEventListener("click", () => {
+      selectedHour = slot.hour;
+      renderTimeSlider();
+      renderDay();
+      renderHourlyPanel();
+    });
+    els.hourlyList.appendChild(row);
   });
 }
 
@@ -143,7 +183,7 @@ function renderDay() {
 
   const idx = resolveSlotIndex(slots);
   if (idx === -1) {
-    els.updatedAt.textContent = "No more hours left today — try Tomorrow.";
+    els.updatedAt.textContent = "No more daylight hours (6am-6pm) left today — try Tomorrow.";
     els.skillValue.textContent = "—";
     els.skillBadge.className = "skill-badge";
     els.skillScale.querySelectorAll("span").forEach(span => span.classList.remove("active"));
@@ -200,6 +240,7 @@ async function loadRegion(key) {
     renderDayTabs();
     renderTimeSlider();
     renderDay();
+    renderHourlyPanel();
     setState("ready");
   } catch (err) {
     if (token !== loadToken) return;
@@ -225,6 +266,7 @@ els.timeSlider.addEventListener("input", () => {
   selectedHour = slot.hour;
   els.timeSliderLabel.textContent = formatHourLabel(slot.hour);
   renderDay();
+  renderHourlyPanel();
 });
 
 loadRegion("sunshine-coast");

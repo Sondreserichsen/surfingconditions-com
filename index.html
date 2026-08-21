@@ -34,37 +34,47 @@
         </div>
       </div>
 
-      <div class="summary-card">
-        <div class="summary-left">
-          <h2 id="region-name"></h2>
-          <p id="updated-at" class="muted"></p>
-        </div>
-        <div class="summary-right">
-          <div class="skill-badge" id="skill-badge">
-            <span class="skill-label">Best suited for</span>
-            <span class="skill-value" id="skill-value">—</span>
+      <div class="layout">
+        <div class="main-column">
+          <div class="summary-card">
+            <div class="summary-left">
+              <h2 id="region-name"></h2>
+              <p id="updated-at" class="muted"></p>
+            </div>
+            <div class="summary-right">
+              <div class="skill-badge" id="skill-badge">
+                <span class="skill-label">Best suited for</span>
+                <span class="skill-value" id="skill-value">—</span>
+              </div>
+              <div class="crowd-badge" id="crowd-badge">
+                <span class="crowd-label">Crowd (est.)</span>
+                <span class="crowd-value" id="crowd-value">—</span>
+              </div>
+            </div>
           </div>
-          <div class="crowd-badge" id="crowd-badge">
-            <span class="crowd-label">Crowd (est.)</span>
-            <span class="crowd-value" id="crowd-value">—</span>
+
+          <div class="flat-banner hidden" id="flat-banner">
+            <span>🌊</span>
+            <span>Waves are too small to catch a surf right now — the ocean is essentially flat.</span>
           </div>
+
+          <div class="skill-scale" id="skill-scale">
+            <span data-level="Beginner">Beginner</span>
+            <span data-level="Amateur">Amateur</span>
+            <span data-level="Casual">Casual</span>
+            <span data-level="Experienced">Experienced</span>
+            <span data-level="Expert">Expert</span>
+          </div>
+
+          <div class="metrics-grid" id="metrics-grid"></div>
         </div>
-      </div>
 
-      <div class="flat-banner hidden" id="flat-banner">
-        <span>🌊</span>
-        <span>Waves are too small to catch a surf right now — the ocean is essentially flat.</span>
+        <aside class="weather-panel" id="weather-panel">
+          <h3 class="weather-panel-title">Weather — 6am to 6pm</h3>
+          <p class="weather-panel-subtitle" id="weather-panel-day"></p>
+          <div class="hourly-list" id="hourly-list"></div>
+        </aside>
       </div>
-
-      <div class="skill-scale" id="skill-scale">
-        <span data-level="Beginner">Beginner</span>
-        <span data-level="Amateur">Amateur</span>
-        <span data-level="Casual">Casual</span>
-        <span data-level="Experienced">Experienced</span>
-        <span data-level="Expert">Expert</span>
-      </div>
-
-      <div class="metrics-grid" id="metrics-grid"></div>
 
       <p class="disclaimer">
         Wave &amp; wind data from <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a>.

@@ -79,10 +79,9 @@ function crowdEstimateFor(c, wallClockDate) {
 
   const score = goodness * 0.5 + timeFactor + weekendBonus;
 
-  if (score < 20) return "Empty";
-  if (score < 40) return "Slightly Busy";
-  if (score < 60) return "Busy";
-  return "Full";
+  if (score < 25) return "Not Busy";
+  if (score < 50) return "Slightly Busy";
+  return "Busy";
 }
 
 function buildMetrics(c) {
