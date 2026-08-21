@@ -3,7 +3,11 @@ const els = {
   error: document.getElementById("error"),
   content: document.getElementById("content"),
   dayTabs: document.getElementById("day-tabs"),
-  timeTabs: document.getElementById("time-tabs"),
+  timeSliderWrap: document.getElementById("time-slider-wrap"),
+  timeSlider: document.getElementById("time-slider"),
+  timeSliderLabel: document.getElementById("time-slider-label"),
+  timeSliderMin: document.getElementById("time-slider-min"),
+  timeSliderMax: document.getElementById("time-slider-max"),
   regionName: document.getElementById("region-name"),
   updatedAt: document.getElementById("updated-at"),
   skillValue: document.getElementById("skill-value"),
@@ -22,17 +26,19 @@ const CROWD_CLASS = {
   "Full": "crowd-full"
 };
 
-const TIME_LABELS = { 9: "9am", 12: "12pm", 15: "3pm" };
-
-let currentForecast = []; // today + next 3 days, each with 9am/12pm/3pm slots
+let currentForecast = []; // today + next 3 days, each with one slot per hour
 let currentRegion = null;
 let selectedDayIdx = 0;
-let selectedHour = null; // 9, 12 or 15 — the user's chosen check-time, kept across day/region switches
+let selectedHour = null; // 0-23 — the user's chosen check-time, kept across day/region/slider changes
 
 function setState(state) {
   els.loading.classList.toggle("hidden", state !== "loading");
   els.error.classList.toggle("hidden", state !== "error");
   els.content.classList.toggle("hidden", state !== "ready");
+}
+
+function formatHourLabel(hour) {
+  return `${String(hour).padStart(2, "0")}:00`;
 }
 
 // Open-Meteo (timezone=auto) returns times as the region's local wall clock
@@ -61,8 +67,8 @@ function nowWallClock(timezone) {
   ));
 }
 
-// For today, only show check-times still ahead of the current time;
-// other days show all three.
+// For today, only show hours still ahead of the current time; other days
+// show the full 24-hour timeline.
 function visibleSlots(day, dayIdx) {
   if (dayIdx !== 0) return day.slots;
   const now = nowWallClock(currentRegion.timezone);
@@ -71,8 +77,8 @@ function visibleSlots(day, dayIdx) {
 
 // Resolves selectedHour to an index within the given (day-specific) slot
 // list: exact hour match if present, otherwise the closest available hour,
-// so a choice like "3pm" survives switching to a day/region where 3pm
-// itself isn't offered.
+// so a choice like "14:00" survives switching to a day/region where that
+// exact hour isn't offered (e.g. today's list got trimmed by visibleSlots).
 function resolveSlotIndex(slots) {
   if (slots.length === 0) return -1;
   if (selectedHour == null) return 0;
@@ -103,28 +109,31 @@ function renderDayTabs() {
     btn.addEventListener("click", () => {
       selectedDayIdx = idx;
       renderDayTabs();
-      renderTimeTabs();
+      renderTimeSlider();
       renderDay();
     });
     els.dayTabs.appendChild(btn);
   });
 }
 
-function renderTimeTabs() {
-  els.timeTabs.innerHTML = "";
+// Syncs the slider's min/max/value/labels to the currently selected day's
+// slots. Called whenever the day or region changes.
+function renderTimeSlider() {
   const slots = visibleSlots(currentForecast[selectedDayIdx], selectedDayIdx);
-  const activeIdx = resolveSlotIndex(slots);
-  slots.forEach((slot, idx) => {
-    const btn = document.createElement("button");
-    btn.className = "tab time-tab" + (idx === activeIdx ? " active" : "");
-    btn.textContent = TIME_LABELS[slot.hour] ?? `${slot.hour}:00`;
-    btn.addEventListener("click", () => {
-      selectedHour = slot.hour;
-      renderTimeTabs();
-      renderDay();
-    });
-    els.timeTabs.appendChild(btn);
-  });
+
+  if (slots.length === 0) {
+    els.timeSliderWrap.classList.add("hidden");
+    return;
+  }
+  els.timeSliderWrap.classList.remove("hidden");
+
+  const idx = resolveSlotIndex(slots);
+  els.timeSlider.min = 0;
+  els.timeSlider.max = slots.length - 1;
+  els.timeSlider.value = idx;
+  els.timeSliderLabel.textContent = formatHourLabel(slots[idx].hour);
+  els.timeSliderMin.textContent = formatHourLabel(slots[0].hour);
+  els.timeSliderMax.textContent = formatHourLabel(slots[slots.length - 1].hour);
 }
 
 function renderDay() {
@@ -134,7 +143,7 @@ function renderDay() {
 
   const idx = resolveSlotIndex(slots);
   if (idx === -1) {
-    els.updatedAt.textContent = "No more check-times left today — try Tomorrow.";
+    els.updatedAt.textContent = "No more hours left today — try Tomorrow.";
     els.skillValue.textContent = "—";
     els.skillBadge.className = "skill-badge";
     els.skillScale.querySelectorAll("span").forEach(span => span.classList.remove("active"));
@@ -178,8 +187,11 @@ async function loadRegion(key) {
   try {
     currentForecast = await fetchForecast(currentRegion);
     selectedDayIdx = Math.min(selectedDayIdx, currentForecast.length - 1);
+    if (selectedHour == null) {
+      selectedHour = nowWallClock(currentRegion.timezone).getUTCHours();
+    }
     renderDayTabs();
-    renderTimeTabs();
+    renderTimeSlider();
     renderDay();
     setState("ready");
   } catch (err) {
@@ -195,6 +207,16 @@ document.getElementById("region-tabs").addEventListener("click", (e) => {
   document.querySelectorAll("#region-tabs .tab").forEach(t => t.classList.remove("active"));
   btn.classList.add("active");
   loadRegion(btn.dataset.region);
+});
+
+// "input" fires continuously while dragging, so conditions update live.
+els.timeSlider.addEventListener("input", () => {
+  const slots = visibleSlots(currentForecast[selectedDayIdx], selectedDayIdx);
+  const slot = slots[Number(els.timeSlider.value)];
+  if (!slot) return;
+  selectedHour = slot.hour;
+  els.timeSliderLabel.textContent = formatHourLabel(slot.hour);
+  renderDay();
 });
 
 loadRegion("sunshine-coast");

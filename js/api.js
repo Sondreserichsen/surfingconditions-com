@@ -1,18 +1,18 @@
 // Fetches marine + weather data from Open-Meteo (free, no API key) and
 // returns snapshots for today plus the next 3 days, each day split into
-// three fixed check-times: 9am, 12pm and 3pm local.
+// one slot per hour (00:00-23:00 local) so the UI can scrub through a
+// continuous timeline instead of a few fixed check-times.
 
 const MARINE_URL = "https://marine-api.open-meteo.com/v1/marine";
 const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
 const FORECAST_DAYS = 4; // today + 3 days ahead
-const CHECK_HOURS = [9, 12, 15];
 
 function dateKey(isoTime) {
   return isoTime.slice(0, 10); // "YYYY-MM-DD" — Open-Meteo times are local, no offset math needed
 }
 
-// Groups hourly indices by calendar day, then within each day picks the
-// index closest to each of CHECK_HOURS.
+// Groups hourly indices by calendar day; each day's slots are every hour
+// Open-Meteo returned for it, in chronological order.
 function slotsByDay(timeArray) {
   const byDay = new Map();
 
@@ -24,16 +24,7 @@ function slotsByDay(timeArray) {
 
   const result = [];
   for (const [day, indices] of byDay.entries()) {
-    const slots = CHECK_HOURS.map(targetHour => {
-      let bestIdx = indices[0];
-      let bestDiff = Infinity;
-      for (const i of indices) {
-        const hour = new Date(timeArray[i]).getHours();
-        const diff = Math.abs(hour - targetHour);
-        if (diff < bestDiff) { bestDiff = diff; bestIdx = i; }
-      }
-      return { hour: targetHour, idx: bestIdx };
-    });
+    const slots = indices.map(i => ({ hour: new Date(timeArray[i]).getHours(), idx: i }));
     result.push({ day, slots });
   }
 

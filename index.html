@@ -24,7 +24,15 @@
 
     <section id="content" class="hidden">
       <div class="day-tabs" id="day-tabs"></div>
-      <div class="time-tabs" id="time-tabs"></div>
+
+      <div class="time-slider-wrap" id="time-slider-wrap">
+        <div class="time-slider-label" id="time-slider-label">--:--</div>
+        <input type="range" class="time-slider" id="time-slider" min="0" max="23" step="1" value="12">
+        <div class="time-slider-bounds">
+          <span id="time-slider-min">00:00</span>
+          <span id="time-slider-max">23:00</span>
+        </div>
+      </div>
 
       <div class="summary-card">
         <div class="summary-left">
