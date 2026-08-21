@@ -2,6 +2,7 @@ const els = {
   loading: document.getElementById("loading"),
   error: document.getElementById("error"),
   content: document.getElementById("content"),
+  spotTabs: document.getElementById("spot-tabs"),
   dayTabs: document.getElementById("day-tabs"),
   timeSliderWrap: document.getElementById("time-slider-wrap"),
   timeSlider: document.getElementById("time-slider"),
@@ -31,6 +32,8 @@ const CROWD_CLASS = {
 
 let currentForecast = []; // today + next 3 days, each with one slot per hour
 let currentRegion = null;
+let currentSpot = null;
+let selectedSpotIdx = 0;
 let selectedDayIdx = 0;
 let selectedHour = null; // 0-23 — the user's chosen check-time, kept across day/region/slider changes
 
@@ -75,7 +78,7 @@ function nowWallClock(timezone) {
 // window by api.js).
 function visibleSlots(day, dayIdx) {
   if (dayIdx !== 0) return day.slots;
-  const now = nowWallClock(currentRegion.timezone);
+  const now = nowWallClock(currentSpot.timezone);
   return day.slots.filter(slot => wallClock(slot.time) > now);
 }
 
@@ -181,7 +184,7 @@ function renderTimeSlider() {
 function renderDay() {
   const slots = visibleSlots(currentForecast[selectedDayIdx], selectedDayIdx);
 
-  els.regionName.textContent = `${currentRegion.name} — ${currentRegion.spot}`;
+  els.regionName.textContent = `${currentRegion.name} — ${currentSpot.name}`;
 
   const idx = resolveSlotIndex(slots);
   if (idx === -1) {
@@ -223,24 +226,46 @@ function renderDay() {
   });
 }
 
-let loadToken = 0; // guards against a slower, superseded region fetch clobbering a newer one
+function renderSpotTabs() {
+  const spots = currentRegion.spots;
+  if (spots.length <= 1) {
+    els.spotTabs.classList.add("hidden");
+    els.spotTabs.innerHTML = "";
+    return;
+  }
+  els.spotTabs.classList.remove("hidden");
+  els.spotTabs.innerHTML = "";
+  spots.forEach((spot, idx) => {
+    const btn = document.createElement("button");
+    btn.className = "tab" + (idx === selectedSpotIdx ? " active" : "");
+    btn.textContent = spot.name;
+    btn.addEventListener("click", () => {
+      selectedSpotIdx = idx;
+      renderSpotTabs();
+      loadSpot();
+    });
+    els.spotTabs.appendChild(btn);
+  });
+}
 
-async function loadRegion(key) {
+let loadToken = 0; // guards against a slower, superseded spot fetch clobbering a newer one
+
+async function loadSpot() {
   const token = ++loadToken;
-  const region = REGIONS[key];
-  currentRegion = region;
-  els.heroImg.src = region.image;
-  els.heroImg.alt = `${region.name} — ${region.spot}`;
-  els.heroCredit.innerHTML = `Photo: <a href="${region.photoCredit.url}" target="_blank" rel="noopener">${region.photoCredit.author}</a> (CC BY-SA)`;
+  const spot = currentRegion.spots[selectedSpotIdx];
+  currentSpot = spot;
+  els.heroImg.src = spot.image;
+  els.heroImg.alt = `${currentRegion.name} — ${spot.name}`;
+  els.heroCredit.innerHTML = `Photo: <a href="${spot.photoCredit.url}" target="_blank" rel="noopener">${spot.photoCredit.author}</a> (CC BY-SA)`;
   setState("loading");
   try {
-    const forecast = await fetchForecast(region);
-    if (token !== loadToken) return; // a newer region switch started while this one was in flight
+    const forecast = await fetchForecast(spot);
+    if (token !== loadToken) return; // a newer spot/region switch started while this one was in flight
 
     currentForecast = forecast;
     selectedDayIdx = Math.min(selectedDayIdx, currentForecast.length - 1);
     if (selectedHour == null) {
-      selectedHour = nowWallClock(region.timezone).getUTCHours();
+      selectedHour = nowWallClock(spot.timezone).getUTCHours();
     }
     renderDayTabs();
     renderTimeSlider();
@@ -253,6 +278,13 @@ async function loadRegion(key) {
     els.error.textContent = "Couldn't load conditions right now. Please try again shortly.";
     setState("error");
   }
+}
+
+function loadRegion(key) {
+  currentRegion = REGIONS[key];
+  selectedSpotIdx = 0;
+  renderSpotTabs();
+  loadSpot();
 }
 
 document.getElementById("region-tabs").addEventListener("click", (e) => {
