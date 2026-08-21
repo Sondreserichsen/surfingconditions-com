@@ -18,7 +18,9 @@ const els = {
   flatBanner: document.getElementById("flat-banner"),
   metricsGrid: document.getElementById("metrics-grid"),
   weatherPanelDay: document.getElementById("weather-panel-day"),
-  hourlyList: document.getElementById("hourly-list")
+  hourlyList: document.getElementById("hourly-list"),
+  heroImg: document.getElementById("hero-img"),
+  heroCredit: document.getElementById("hero-credit")
 };
 
 const CROWD_CLASS = {
@@ -227,6 +229,9 @@ async function loadRegion(key) {
   const token = ++loadToken;
   const region = REGIONS[key];
   currentRegion = region;
+  els.heroImg.src = region.image;
+  els.heroImg.alt = `${region.name} — ${region.spot}`;
+  els.heroCredit.innerHTML = `Photo: <a href="${region.photoCredit.url}" target="_blank" rel="noopener">${region.photoCredit.author}</a> (CC BY-SA)`;
   setState("loading");
   try {
     const forecast = await fetchForecast(region);
