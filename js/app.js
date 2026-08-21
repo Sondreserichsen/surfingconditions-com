@@ -181,20 +181,28 @@ function renderDay() {
   });
 }
 
+let loadToken = 0; // guards against a slower, superseded region fetch clobbering a newer one
+
 async function loadRegion(key) {
-  currentRegion = REGIONS[key];
+  const token = ++loadToken;
+  const region = REGIONS[key];
+  currentRegion = region;
   setState("loading");
   try {
-    currentForecast = await fetchForecast(currentRegion);
+    const forecast = await fetchForecast(region);
+    if (token !== loadToken) return; // a newer region switch started while this one was in flight
+
+    currentForecast = forecast;
     selectedDayIdx = Math.min(selectedDayIdx, currentForecast.length - 1);
     if (selectedHour == null) {
-      selectedHour = nowWallClock(currentRegion.timezone).getUTCHours();
+      selectedHour = nowWallClock(region.timezone).getUTCHours();
     }
     renderDayTabs();
     renderTimeSlider();
     renderDay();
     setState("ready");
   } catch (err) {
+    if (token !== loadToken) return;
     console.error(err);
     els.error.textContent = "Couldn't load conditions right now. Please try again shortly.";
     setState("error");
