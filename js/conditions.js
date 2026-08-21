@@ -4,6 +4,10 @@
 
 const SKILL_LEVELS = ["Beginner", "Amateur", "Casual", "Experienced", "Expert"];
 
+// Below this, waves generally don't have enough face to push a board —
+// there's nothing to catch, regardless of surfer skill.
+const NOT_SURFABLE_WAVE_HEIGHT = 0.3;
+
 function degreesToCompass(deg) {
   if (deg === undefined || deg === null || Number.isNaN(deg)) return "—";
   const dirs = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
@@ -30,12 +34,18 @@ const SKILL_BANDS = [
 ];
 
 function skillLevelFor(c) {
+  const waveHeight = c.wave_height ?? c.swell_wave_height ?? 0;
   const score = difficultyScore(c);
+
+  if (waveHeight < NOT_SURFABLE_WAVE_HEIGHT) {
+    return { level: "Not Surfable", score, notSurfable: true };
+  }
+
   let best = SKILL_BANDS[0].level;
   for (const band of SKILL_BANDS) {
     if (score >= band.min) best = band.level;
   }
-  return { level: best, score };
+  return { level: best, score, notSurfable: false };
 }
 
 // Crowd estimate: combines how "fun"/approachable the conditions are with

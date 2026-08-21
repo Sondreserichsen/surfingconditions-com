@@ -7,9 +7,11 @@ const els = {
   regionName: document.getElementById("region-name"),
   updatedAt: document.getElementById("updated-at"),
   skillValue: document.getElementById("skill-value"),
+  skillBadge: document.getElementById("skill-badge"),
   crowdValue: document.getElementById("crowd-value"),
   crowdBadge: document.getElementById("crowd-badge"),
   skillScale: document.getElementById("skill-scale"),
+  flatBanner: document.getElementById("flat-banner"),
   metricsGrid: document.getElementById("metrics-grid")
 };
 
@@ -134,7 +136,9 @@ function renderDay() {
   if (idx === -1) {
     els.updatedAt.textContent = "No more check-times left today — try Tomorrow.";
     els.skillValue.textContent = "—";
+    els.skillBadge.className = "skill-badge";
     els.skillScale.querySelectorAll("span").forEach(span => span.classList.remove("active"));
+    els.flatBanner.classList.add("hidden");
     els.crowdValue.textContent = "—";
     els.crowdBadge.className = "crowd-badge";
     els.metricsGrid.innerHTML = "";
@@ -146,8 +150,10 @@ function renderDay() {
 
   els.updatedAt.textContent = `Conditions for ${wc.toLocaleString("en-AU", { timeZone: "UTC", weekday: "long", hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" })}`;
 
-  const { level } = skillLevelFor(conditions);
+  const { level, notSurfable } = skillLevelFor(conditions);
   els.skillValue.textContent = level;
+  els.skillBadge.className = "skill-badge" + (notSurfable ? " skill-flat" : "");
+  els.flatBanner.classList.toggle("hidden", !notSurfable);
 
   els.skillScale.querySelectorAll("span").forEach(span => {
     span.classList.toggle("active", span.dataset.level === level);
